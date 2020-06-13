@@ -12,12 +12,12 @@ import PursIde.Codec (importCommandCodec)
 import Unsafe.Coerce (unsafeCoerce)
 
 importCommand :: J.Json
-importCommand = unsafeCoerce
- {
-  module: "Data.List",
-  qualifier: "List",
-  importCommand: "addQualifiedImport"
-}   
+importCommand =
+  unsafeCoerce
+    { module: "Data.List"
+    , qualifier: "List"
+    , importCommand: "addQualifiedImport"
+    }
 
 importCommand2 :: J.Json
 importCommand2 = unsafeCoerce { identifier: "filter", importCommand: "addImport" }
