@@ -50,8 +50,6 @@ data Command
     , filters :: Array Filter
     , importCommand :: ImportCommand
     }
-  | AddClause String Boolean
-  | CaseSplit String Int Int Boolean String
   | RebuildCmd
     { file :: String
     , actualFile :: Maybe FileName
@@ -94,9 +92,9 @@ data ImportCommand
   | AddImport String (Maybe String)
 
 type GenCompletion a
-  = { type' :: String
+  = { type :: String
     , identifier :: String
-    , module' :: String
+    , module :: String
     | a
     }
 
@@ -114,14 +112,6 @@ type TypeInfo
         , exportedFrom :: Array String
         )
     )
-
-type PursuitCompletion
-  = { type' :: Maybe String
-    , identifier :: String
-    , module' :: String
-    , package :: String
-    , text :: String
-    }
 
 type ModuleList
   = Array String
@@ -144,7 +134,11 @@ type Position
   = { line :: Int, column :: Int }
 
 type RangePosition
-  = { startLine :: Int, startColumn :: Int, endLine :: Int, endColumn :: Int }
+  = { startLine :: Int
+    , startColumn :: Int
+    , endLine :: Int
+    , endColumn :: Int
+    }
 
 type RebuildError
   = { position :: Maybe RangePosition
@@ -154,10 +148,10 @@ type RebuildError
     , message :: String
     , errorLink :: String
     , pursIde :: Maybe PursIdeInfo
-    , suggestion :: Maybe PscSuggestion
+    , suggestion :: Maybe Suggestion
     }
 
-type PscSuggestion
+type Suggestion
   = { replacement :: String
     , replaceRange :: Maybe RangePosition
     }
