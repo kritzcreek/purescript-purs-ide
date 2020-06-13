@@ -1,0 +1,11 @@
+{
+  "scripts": {
+    "build": "spago build"
+  },
+  "devDependencies": {
+    "purescript": "0.13.8",
+    "purty": "^6.2.0",
+    "spago": "0.15.2",
+    "which": "2.0.2"
+  }
+}
