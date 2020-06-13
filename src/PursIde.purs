@@ -1,6 +1,5 @@
 module PursIde where
 
-import Prelude
 import Data.Maybe (Maybe)
 
 type ModuleName
@@ -57,8 +56,7 @@ data Command
     }
 
 data ListType
-  = LoadedModules
-  | Imports String
+  = Imports String
   | AvailableModules
 
 data Namespace
