@@ -6,8 +6,8 @@ type ModuleName
   = String
 
 data Matcher
-  = Flex String
-  | Distance String Int
+  = Flex { search :: String }
+  | Distance { search :: String, maximumDistance :: Int }
 
 data Filter
   = ExactFilter String
@@ -26,7 +26,7 @@ data Command
   | Ls ListType
   | Quit
   | Reset
-  | Load (Array ModuleName)
+  | Load { modules :: Array ModuleName }
   | Complete
     { filters :: Array Filter
     , matcher :: Maybe Matcher
@@ -52,7 +52,7 @@ data Command
   | RebuildCmd
     { file :: String
     , actualFile :: Maybe FileName
-    , codegen :: Maybe (Array CodegenTarget)
+    , codegen :: Array CodegenTarget
     }
 
 data ListType

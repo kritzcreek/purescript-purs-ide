@@ -12,9 +12,9 @@ import Data.Codec.Argonaut (JsonCodec, JsonDecodeError(..))
 import Data.Codec.Argonaut as JA
 import Data.Either (Either(..))
 import Data.Foldable (traverse_)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Data.Profunctor.Star (Star(..))
-import Data.Tuple (Tuple(..))
+import Data.Tuple (Tuple(..), uncurry)
 import Foreign.Object as FO
 import Foreign.Object.ST as FOST
 
@@ -95,3 +95,15 @@ enumSum name printTag parseTag = C.GCodec dec enc
 
   enc ∷ Star (Writer J.Json) a a
   enc = Star \a → writer $ Tuple a (JA.encode JA.string (printTag a))
+
+remapField ∷ String → String → JsonCodec J.Json
+remapField oldName newName = C.basicCodec (pure <<< dec) enc
+  where
+  dec ∷ J.Json → J.Json
+  dec j = J.caseJsonObject j (J.fromObject <<< rename newName oldName) j
+
+  rename ∷ String -> String -> FO.Object J.Json → FO.Object J.Json
+  rename new old obj = maybe obj (uncurry (FO.insert new)) (FO.pop old obj)
+
+  enc ∷ J.Json → J.Json
+  enc j = J.caseJsonObject j (J.fromObject <<< rename oldName newName) j
