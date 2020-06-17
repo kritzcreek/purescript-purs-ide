@@ -1,7 +1,6 @@
 module PursIde.Codec where
 
 import Prelude
-
 import CodecExt as CExt
 import Data.Codec as C
 import Data.Codec.Argonaut (JsonCodec)
@@ -14,7 +13,7 @@ import Data.Functor.Variant (SProxy(..))
 import Data.Maybe (Maybe(..))
 import Data.Profunctor (dimap)
 import Data.Variant as V
-import PursIde (CodegenTarget(..), Command(..), CompletionOptions, DeclarationType(..), Filter(..), ImportCommand(..), ListType(..), Matcher(..), Namespace(..))
+import PursIde (CodegenTarget(..), Command(..), Completion, CompletionOptions, DeclarationType(..), Filter(..), ImportCommand(..), ListType(..), Matcher(..), Namespace(..), Position, PursIdeInfo, Range, RangePosition, RebuildError, Suggestion)
 
 namespaceCodec :: JsonCodec Namespace
 namespaceCodec = CExt.enumSum "Namespace" encode decode
@@ -203,7 +202,7 @@ commandCodec =
             , type:
                 Right
                   ( JAR.object "TypeCommand"
-                      { search : JA.string
+                      { search: JA.string
                       , filters: JA.array filterCodec
                       , currentModule: JAC.maybe JA.string
                       }
@@ -211,7 +210,7 @@ commandCodec =
             , usages:
                 Right
                   ( JAR.object "UsagesCommand"
-                      { module : JA.string
+                      { module: JA.string
                       , namespace: namespaceCodec
                       , identifier: JAC.string
                       }
@@ -219,8 +218,8 @@ commandCodec =
             , import:
                 Right
                   ( JAR.object "ImportCommand"
-                      { filepath : JA.string
-                      , actualFilepath : JAC.maybe JA.string
+                      { filepath: JA.string
+                      , actualFilepath: JAC.maybe JA.string
                       , filters: JA.array filterCodec
                       , importCommand: importCommandCodec
                       }
@@ -228,8 +227,8 @@ commandCodec =
             , rebuild:
                 Right
                   ( JAR.object "RebuildCommand"
-                      { file : JA.string
-                      , actualFile : JAC.maybe JA.string
+                      { file: JA.string
+                      , actualFile: JAC.maybe JA.string
                       , codegen: JA.array codegenTargetCodec
                       }
                   )
@@ -261,3 +260,67 @@ commandCodec =
       , import: ImportCmd
       , rebuild: RebuildCmd
       }
+
+rangePositionCodec :: JsonCodec RangePosition
+rangePositionCodec =
+  JAR.object "RangePosition"
+    { startLine: JA.int
+    , startColumn: JA.int
+    , endLine: JA.int
+    , endColumn: JA.int
+    }
+
+-- TODO: Give this a better name
+pursIdeInfoCodec :: JsonCodec PursIdeInfo
+pursIdeInfoCodec =
+  JAR.object "PursIdeInfo"
+    { name: JA.string
+    , completions: JA.array completionCodec
+    }
+
+completionCodec :: JsonCodec Completion
+completionCodec =
+  JAR.object "Completion"
+    { type: JA.string
+    , identifier: JA.string
+    , module: JA.string
+    , definedAt: JAC.maybe rangeCodec
+    , expandedType: JAC.maybe JA.string
+    , documentation: JAC.maybe JA.string
+    , exportedFrom: JA.array JA.string
+    }
+
+positionCodec :: JsonCodec Position
+positionCodec =
+  JAR.object "Position"
+    { line: JA.int
+    , column: JA.int
+    }
+
+rangeCodec :: JsonCodec Range
+rangeCodec =
+  JAR.object "Range"
+    { name: JA.string
+    , start: positionCodec
+    , end: positionCodec
+    }
+
+suggestionCodec :: JsonCodec Suggestion
+suggestionCodec =
+  JAR.object "Suggestion"
+    { replacement: JA.string
+    , replaceRange: JAC.maybe rangePositionCodec
+    }
+
+rebuildErrorCodec :: JsonCodec RebuildError
+rebuildErrorCodec =
+  JAR.object "RebuildError"
+    { position: JAC.maybe rangePositionCodec
+    , moduleName: JAC.maybe JA.string
+    , filename: JAC.maybe JA.string
+    , errorCode: JA.string
+    , message: JA.string
+    , errorLink: JA.string
+    , pursIde: JAC.maybe pursIdeInfoCodec
+    , suggestion: JAC.maybe suggestionCodec
+    }

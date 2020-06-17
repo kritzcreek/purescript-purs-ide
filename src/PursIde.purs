@@ -96,20 +96,21 @@ type GenCompletion a
     | a
     }
 
-type TypePosition
+type Range
   = { name :: String
     , start :: Position
     , end :: Position
     }
 
-type TypeInfo
-  = ( GenCompletion
-        ( definedAt :: Maybe TypePosition
-        , expandedType :: Maybe String
-        , documentation :: Maybe String
-        , exportedFrom :: Array String
-        )
-    )
+type Completion
+  = { type :: String
+    , identifier :: String
+    , module :: String
+    , definedAt :: Maybe Range
+    , expandedType :: Maybe String
+    , documentation :: Maybe String
+    , exportedFrom :: Array String
+    }
 
 type ModuleList
   = Array String
@@ -156,10 +157,10 @@ type Suggestion
 
 type PursIdeInfo
   = { name :: String
-    , completions :: Array TypeInfo
+    , completions :: Array Completion
     }
 
 data ImportResult
   = SuccessFile String
   | SuccessText (Array String)
-  | MultipleResults (Array TypeInfo)
+  | MultipleResults (Array Completion)
