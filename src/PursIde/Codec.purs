@@ -1,6 +1,7 @@
 module PursIde.Codec where
 
 import Prelude
+
 import CodecExt as CExt
 import Data.Codec as C
 import Data.Codec.Argonaut (JsonCodec)
@@ -13,92 +14,28 @@ import Data.Functor.Variant (SProxy(..))
 import Data.Maybe (Maybe(..))
 import Data.Profunctor (dimap)
 import Data.Variant as V
-import PursIde (CodegenTarget(..), Command(..), Completion, CompletionOptions, DeclarationType(..), Filter(..), ImportCommand(..), ListType(..), Matcher(..), Namespace(..), Position, HoleFits, Range, RangePosition, RebuildError, Suggestion)
+import PursIde (CodegenTarget(..), Command(..), Completion, CompletionOptions, DeclarationType(..), Filter(..), HoleFits, Import, ImportCommand(..), ImportList, ImportType(..), ListType(..), Matcher(..), Namespace(..), Position, Range, RangePosition, RebuildError, Suggestion)
+import Record as Record
 
-namespaceCodec :: JsonCodec Namespace
-namespaceCodec = CExt.enumSum "Namespace" encode decode
-  where
-  decode = case _ of
-    "value" -> Just NSValue
-    "type" -> Just NSType
-    "module" -> Just NSModule
-    _ -> Nothing
-
-  encode = case _ of
-    NSValue -> "value"
-    NSType -> "type"
-    NSModule -> "module"
-
-codegenTargetCodec :: JsonCodec CodegenTarget
-codegenTargetCodec = CExt.enumSum "CodegenTarget" encode decode
-  where
-  encode = case _ of
-    JS -> "js"
-    JSSourceMap -> "sourcemaps"
-    CoreFn -> "corefn"
-    Docs -> "docs"
-    Other o -> o
-
-  decode s =
-    Just case s of
-      "js" -> JS
-      "sourcemaps" -> JSSourceMap
-      "corefn" -> CoreFn
-      "docs" -> Docs
-      o -> Other o
-
-declarationTypeCodec :: JsonCodec DeclarationType
-declarationTypeCodec = CExt.enumSum "DeclarationType" encode decode
-  where
-  encode = case _ of
-    ValueDT -> "value"
-    TypeDT -> "type"
-    SynonymDT -> "synonym"
-    DataConstructorDT -> "dataconstructor"
-    TypeClassDT -> "typeclass"
-    ValueOperatorDT -> "valueoperator"
-    TypeOperatorDT -> "typeoperator"
-    ModuleDT -> "module"
-
-  decode = case _ of
-    "value" -> Just ValueDT
-    "type" -> Just TypeDT
-    "synonym" -> Just SynonymDT
-    "dataconstructor" -> Just DataConstructorDT
-    "typeclass" -> Just TypeClassDT
-    "valueoperator" -> Just ValueOperatorDT
-    "typeoperator" -> Just TypeOperatorDT
-    "module" -> Just ModuleDT
-    _ -> Nothing
-
-importCommandCodec :: JsonCodec ImportCommand
-importCommandCodec =
-  CExt.flatTagged "importCommand"
+matcherCodec :: JsonCodec Matcher
+matcherCodec =
+  CExt.remapField "matcher" "tag"
+    C.>~> CExt.remapField "params" "value"
     C.>~> dimap toVariant fromVariant
         ( JAV.variantMatch
-            { addImplicitImport: Right (JAR.object "implicitImport" { module: JA.string })
-            , addQualifiedImport: Right (JAR.object "qualifiedImport" { module: JA.string, qualifier: JA.string })
-            , addImport:
-                Right
-                  ( CExt.withNullables [ "qualifier" ]
-                      C.>~> JAR.object "addImport"
-                          { identifier: JA.string
-                          , qualifier: JAC.maybe JA.string
-                          }
-                  )
+            { flex: Right (JAR.object "flex" { search: JA.string })
+            , distance: Right (JAR.object "distance" { search: JA.string, maximumDistance: JA.int })
             }
         )
   where
   toVariant = case _ of
-    AddImplicitImport name -> V.inj (SProxy ∷ _ "addImplicitImport") { module: name }
-    AddQualifiedImport name qualifier -> V.inj (SProxy ∷ _ "addQualifiedImport") { module: name, qualifier }
-    AddImport identifier qualifier -> V.inj (SProxy ∷ _ "addImport") { identifier, qualifier }
+    Flex flex -> V.inj (SProxy :: _ "flex") flex
+    Distance dist -> V.inj (SProxy :: _ "distance") dist
 
   fromVariant =
     V.match
-      { addImplicitImport: AddImplicitImport <<< _.module
-      , addQualifiedImport: \{ module: name, qualifier } -> AddQualifiedImport name qualifier
-      , addImport: \{ identifier, qualifier } -> AddImport identifier qualifier
+      { flex: Flex
+      , distance: Distance
       }
 
 filterCodec :: JsonCodec Filter
@@ -131,26 +68,6 @@ filterCodec =
       , declarations: DeclarationTypeFilter
       }
 
-matcherCodec :: JsonCodec Matcher
-matcherCodec =
-  CExt.remapField "matcher" "tag"
-    C.>~> CExt.remapField "params" "value"
-    C.>~> dimap toVariant fromVariant
-        ( JAV.variantMatch
-            { flex: Right (JAR.object "flex" { search: JA.string })
-            , distance: Right (JAR.object "distance" { search: JA.string, maximumDistance: JA.int })
-            }
-        )
-  where
-  toVariant = case _ of
-    Flex flex -> V.inj (SProxy :: _ "flex") flex
-    Distance dist -> V.inj (SProxy :: _ "distance") dist
-
-  fromVariant =
-    V.match
-      { flex: Flex
-      , distance: Distance
-      }
 
 completionOptionsCodec :: JsonCodec CompletionOptions
 completionOptionsCodec =
@@ -158,26 +75,6 @@ completionOptionsCodec =
     { groupReexports: JA.boolean
     , maxResults: JAC.maybe JA.int
     }
-
-listTypeCodec :: JsonCodec ListType
-listTypeCodec =
-  CExt.flatTagged "type"
-    C.>~> dimap toVariant fromVariant
-        ( JAV.variantMatch
-            { availableModules: Left unit
-            , imports: Right JA.string
-            }
-        )
-  where
-  toVariant = case _ of
-    AvailableModules -> V.inj (SProxy :: _ "availableModules") unit
-    Imports file -> V.inj (SProxy :: _ "imports") file
-
-  fromVariant =
-    V.match
-      { availableModules: \_ -> AvailableModules
-      , imports: Imports
-      }
 
 commandCodec :: JsonCodec Command
 commandCodec =
@@ -261,33 +158,111 @@ commandCodec =
       , rebuild: RebuildCmd
       }
 
-rangePositionCodec :: JsonCodec RangePosition
-rangePositionCodec =
-  JAR.object "RangePosition"
-    { startLine: JA.int
-    , startColumn: JA.int
-    , endLine: JA.int
-    , endColumn: JA.int
-    }
+listTypeCodec :: JsonCodec ListType
+listTypeCodec =
+  CExt.flatTagged "type"
+    C.>~> dimap toVariant fromVariant
+        ( JAV.variantMatch
+            { availableModules: Left unit
+            , imports: Right JA.string
+            }
+        )
+  where
+  toVariant = case _ of
+    AvailableModules -> V.inj (SProxy :: _ "availableModules") unit
+    Imports file -> V.inj (SProxy :: _ "imports") file
 
-holeFitsCodec :: JsonCodec HoleFits
-holeFitsCodec =
-  JAR.object "HoleFits"
-    { name: JA.string
-    , completions: JA.array completionCodec
-    }
+  fromVariant =
+    V.match
+      { availableModules: \_ -> AvailableModules
+      , imports: Imports
+      }
 
-completionCodec :: JsonCodec Completion
-completionCodec =
-  JAR.object "Completion"
-    { type: JA.string
-    , identifier: JA.string
-    , module: JA.string
-    , definedAt: JAC.maybe rangeCodec
-    , expandedType: JAC.maybe JA.string
-    , documentation: JAC.maybe JA.string
-    , exportedFrom: JA.array JA.string
-    }
+namespaceCodec :: JsonCodec Namespace
+namespaceCodec = CExt.enumSum "Namespace" encode decode
+  where
+  decode = case _ of
+    "value" -> Just NSValue
+    "type" -> Just NSType
+    "module" -> Just NSModule
+    _ -> Nothing
+
+  encode = case _ of
+    NSValue -> "value"
+    NSType -> "type"
+    NSModule -> "module"
+
+declarationTypeCodec :: JsonCodec DeclarationType
+declarationTypeCodec = CExt.enumSum "DeclarationType" encode decode
+  where
+  encode = case _ of
+    ValueDT -> "value"
+    TypeDT -> "type"
+    SynonymDT -> "synonym"
+    DataConstructorDT -> "dataconstructor"
+    TypeClassDT -> "typeclass"
+    ValueOperatorDT -> "valueoperator"
+    TypeOperatorDT -> "typeoperator"
+    ModuleDT -> "module"
+
+  decode = case _ of
+    "value" -> Just ValueDT
+    "type" -> Just TypeDT
+    "synonym" -> Just SynonymDT
+    "dataconstructor" -> Just DataConstructorDT
+    "typeclass" -> Just TypeClassDT
+    "valueoperator" -> Just ValueOperatorDT
+    "typeoperator" -> Just TypeOperatorDT
+    "module" -> Just ModuleDT
+    _ -> Nothing
+
+codegenTargetCodec :: JsonCodec CodegenTarget
+codegenTargetCodec = CExt.enumSum "CodegenTarget" encode decode
+  where
+  encode = case _ of
+    JS -> "js"
+    JSSourceMap -> "sourcemaps"
+    CoreFn -> "corefn"
+    Docs -> "docs"
+    Other o -> o
+
+  decode s =
+    Just case s of
+      "js" -> JS
+      "sourcemaps" -> JSSourceMap
+      "corefn" -> CoreFn
+      "docs" -> Docs
+      o -> Other o
+
+importCommandCodec :: JsonCodec ImportCommand
+importCommandCodec =
+  CExt.flatTagged "importCommand"
+    C.>~> dimap toVariant fromVariant
+        ( JAV.variantMatch
+            { addImplicitImport: Right (JAR.object "implicitImport" { module: JA.string })
+            , addQualifiedImport: Right (JAR.object "qualifiedImport" { module: JA.string, qualifier: JA.string })
+            , addImport:
+                Right
+                  ( CExt.withNullables [ "qualifier" ]
+                      C.>~> JAR.object "addImport"
+                          { identifier: JA.string
+                          , qualifier: JAC.maybe JA.string
+                          }
+                  )
+            }
+        )
+  where
+  toVariant = case _ of
+    AddImplicitImport imp -> V.inj (SProxy ∷ _ "addImplicitImport") imp
+    AddQualifiedImport imp -> V.inj (SProxy ∷ _ "addQualifiedImport") imp
+    AddImport imp -> V.inj (SProxy ∷ _ "addImport") imp
+
+  fromVariant =
+    V.match
+      { addImplicitImport: AddImplicitImport
+      , addQualifiedImport: AddQualifiedImport
+      , addImport: AddImport
+      }
 
 positionCodec :: JsonCodec Position
 positionCodec =
@@ -304,11 +279,52 @@ rangeCodec =
     , end: positionCodec
     }
 
-suggestionCodec :: JsonCodec Suggestion
-suggestionCodec =
-  JAR.object "Suggestion"
-    { replacement: JA.string
-    , replaceRange: JAC.maybe rangePositionCodec
+completionCodec :: JsonCodec Completion
+completionCodec =
+  JAR.object "Completion"
+    { type: JA.string
+    , identifier: JA.string
+    , module: JA.string
+    , definedAt: JAC.maybe rangeCodec
+    , expandedType: JAC.maybe JA.string
+    , documentation: JAC.maybe JA.string
+    , exportedFrom: JA.array JA.string
+    }
+
+importListCodec :: JsonCodec ImportList
+importListCodec = JAR.object "ImportList" { moduleName: JA.string, imports: JA.array importCodec}
+
+importCodec :: JsonCodec Import
+importCodec =
+  CExt.withNullables ["qualifier"] C.>~>
+  CExt.flatTagged "importType" C.>~>
+  dimap toVariant fromVariant
+    ( JAV.variantMatch
+        { implicit: Right (JAR.object "Implicit Import" { module: JA.string, qualifier: JAC.maybe JA.string})
+        , explicit: Right (JAR.object "Explicit Import" { module: JA.string, qualifier: JAC.maybe JA.string, identifiers: JA.array JA.string })
+        , hiding: Right (JAR.object "Hiding Import" { module: JA.string, qualifier: JAC.maybe JA.string, identifiers: JA.array JA.string })
+        }
+    )
+  where
+  toVariant { module: mn, qualifier, importType} = case importType of
+    Implicit -> V.inj (SProxy ∷ _ "implicit") { module: mn, qualifier }
+    Explicit identifiers -> V.inj (SProxy ∷ _ "explicit") { module: mn, qualifier, identifiers }
+    Hiding identifiers -> V.inj (SProxy ∷ _ "hiding") { module: mn, qualifier, identifiers }
+
+  fromVariant =
+    V.match
+      { implicit: Record.insert (SProxy :: _"importType") Implicit
+      , explicit: \{ module: name, qualifier, identifiers } -> {module: name, qualifier, importType: Explicit identifiers}
+      , hiding: \{ module: name, qualifier, identifiers } -> {module: name, qualifier, importType: Hiding identifiers}
+      }
+
+rangePositionCodec :: JsonCodec RangePosition
+rangePositionCodec =
+  JAR.object "RangePosition"
+    { startLine: JA.int
+    , startColumn: JA.int
+    , endLine: JA.int
+    , endColumn: JA.int
     }
 
 rebuildErrorCodec :: JsonCodec RebuildError
@@ -322,4 +338,18 @@ rebuildErrorCodec =
     , errorLink: JA.string
     , pursIde: JAC.maybe holeFitsCodec
     , suggestion: JAC.maybe suggestionCodec
+    }
+
+suggestionCodec :: JsonCodec Suggestion
+suggestionCodec =
+  JAR.object "Suggestion"
+    { replacement: JA.string
+    , replaceRange: JAC.maybe rangePositionCodec
+    }
+
+holeFitsCodec :: JsonCodec HoleFits
+holeFitsCodec =
+  JAR.object "HoleFits"
+    { name: JA.string
+    , completions: JA.array completionCodec
     }

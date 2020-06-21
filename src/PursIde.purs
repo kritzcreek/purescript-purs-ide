@@ -5,6 +5,9 @@ import Data.Maybe (Maybe)
 type ModuleName
   = String
 
+type FileName
+  = String
+
 data Matcher
   = Flex { search :: String }
   | Distance { search :: String, maximumDistance :: Int }
@@ -36,7 +39,7 @@ data Command
   | Type
     { search :: String
     , filters :: Array Filter
-    , currentModule :: Maybe String
+    , currentModule :: Maybe ModuleName
     }
   | Usages
     { module :: ModuleName
@@ -50,7 +53,7 @@ data Command
     , importCommand :: ImportCommand
     }
   | RebuildCmd
-    { file :: String
+    { file :: FileName
     , actualFile :: Maybe FileName
     , codegen :: Array CodegenTarget
     }
@@ -81,23 +84,16 @@ data CodegenTarget
   | Docs
   | Other String
 
-type FileName
-  = String
-
 data ImportCommand
-  = AddImplicitImport String
-  | AddQualifiedImport String String
-  | AddImport String (Maybe String)
+  = AddImplicitImport { module :: ModuleName }
+  | AddQualifiedImport { module :: ModuleName, qualifier :: String }
+  | AddImport { identifier :: String, qualifier :: Maybe String }
 
-type GenCompletion a
-  = { type :: String
-    , identifier :: String
-    , module :: String
-    | a
-    }
+type Position
+  = { line :: Int, column :: Int }
 
 type Range
-  = { name :: String
+  = { name :: FileName
     , start :: Position
     , end :: Position
     }
@@ -112,14 +108,11 @@ type Completion
     , exportedFrom :: Array String
     }
 
-type ModuleList
-  = Array String
-
 type ImportList
-  = { moduleName :: Maybe String, imports :: Array Import }
+  = { moduleName :: ModuleName, imports :: Array Import }
 
 type Import
-  = { moduleName :: String
+  = { module :: ModuleName
     , importType :: ImportType
     , qualifier :: Maybe String
     }
@@ -128,9 +121,6 @@ data ImportType
   = Implicit
   | Explicit (Array String)
   | Hiding (Array String)
-
-type Position
-  = { line :: Int, column :: Int }
 
 type RangePosition
   = { startLine :: Int
@@ -141,8 +131,8 @@ type RangePosition
 
 type RebuildError
   = { position :: Maybe RangePosition
-    , moduleName :: Maybe String
-    , filename :: Maybe String
+    , moduleName :: Maybe ModuleName
+    , filename :: Maybe FileName
     , errorCode :: String
     , message :: String
     , errorLink :: String
