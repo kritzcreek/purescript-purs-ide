@@ -13,7 +13,7 @@ import Data.Functor.Variant (SProxy(..))
 import Data.Maybe (Maybe(..))
 import Data.Profunctor (dimap)
 import Data.Variant as V
-import PursIde (CodegenTarget(..), Command(..), Completion, CompletionOptions, DeclarationType(..), Filter(..), ImportCommand(..), ListType(..), Matcher(..), Namespace(..), Position, PursIdeInfo, Range, RangePosition, RebuildError, Suggestion)
+import PursIde (CodegenTarget(..), Command(..), Completion, CompletionOptions, DeclarationType(..), Filter(..), ImportCommand(..), ListType(..), Matcher(..), Namespace(..), Position, HoleFits, Range, RangePosition, RebuildError, Suggestion)
 
 namespaceCodec :: JsonCodec Namespace
 namespaceCodec = CExt.enumSum "Namespace" encode decode
@@ -270,10 +270,9 @@ rangePositionCodec =
     , endColumn: JA.int
     }
 
--- TODO: Give this a better name
-pursIdeInfoCodec :: JsonCodec PursIdeInfo
-pursIdeInfoCodec =
-  JAR.object "PursIdeInfo"
+holeFitsCodec :: JsonCodec HoleFits
+holeFitsCodec =
+  JAR.object "HoleFits"
     { name: JA.string
     , completions: JA.array completionCodec
     }
@@ -321,6 +320,6 @@ rebuildErrorCodec =
     , errorCode: JA.string
     , message: JA.string
     , errorLink: JA.string
-    , pursIde: JAC.maybe pursIdeInfoCodec
+    , pursIde: JAC.maybe holeFitsCodec
     , suggestion: JAC.maybe suggestionCodec
     }

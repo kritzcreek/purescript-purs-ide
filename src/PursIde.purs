@@ -146,7 +146,7 @@ type RebuildError
     , errorCode :: String
     , message :: String
     , errorLink :: String
-    , pursIde :: Maybe PursIdeInfo
+    , pursIde :: Maybe HoleFits
     , suggestion :: Maybe Suggestion
     }
 
@@ -155,7 +155,7 @@ type Suggestion
     , replaceRange :: Maybe RangePosition
     }
 
-type PursIdeInfo
+type HoleFits
   = { name :: String
     , completions :: Array Completion
     }
