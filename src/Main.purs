@@ -24,7 +24,7 @@ importCommand2 = unsafeCoerce { identifier: "filter", importCommand: "addImport"
 
 main :: Effect Unit
 main = do
-  Debug.traceM (C.encode importCommandCodec (AddQualifiedImport "Data.List" "List"))
-  Debug.traceM (C.encode importCommandCodec (AddImport "filter" Nothing))
+  Debug.traceM (C.encode importCommandCodec (AddQualifiedImport { module: "Data.List", qualifier: "List" }))
+  Debug.traceM (C.encode importCommandCodec (AddImport { identifier: "filter", qualifier: Nothing}))
   Debug.traceM (C.decode importCommandCodec importCommand)
   Debug.traceM (C.decode importCommandCodec importCommand2)
